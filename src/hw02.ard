@@ -78,5 +78,5 @@
   => (g.1, h g.1 g.2)
 
 -- s4 : Если для всех x : Nat либо не верно P(x), либо не верно Q(x), то P(3) влечет, что Q(3) не верно.
-\func s4 (P : Nat -> \Type) (Q : Nat -> \Type) (h : Or (\Sigma (x : Nat) (P x)) (\Sigma (x : Nat) (Q x)) -> Empty) : P 3 -> Q 3 -> Empty
-  => \lam p3 q3 => h (inl (3, p3))
+\func s4 (P : Nat -> \Type) (Q : Nat -> \Type) (h : \Pi (x : Nat) -> Or (P x) (Q x) -> Empty) : P 3 -> Q 3 -> Empty
+  => \lam p3 q3 => h 3 (inl p3)
