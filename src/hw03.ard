@@ -25,30 +25,53 @@
   | nil => nil
   | :: x xs => reverse xs ++ x :: nil
 
+\func listNil {A : \Type} (xs : List A) : xs ++ nil = xs
+  | nil => idp
+  | a :: xs => pmap (\lam x => a :: x) $ listNil xs
+
 -- Это утверждение будет полезно для доказательства.
 \func reverse++ {A : \Type} (xs ys : List A) : reverse (xs ++ ys) = reverse ys ++ reverse xs
   | nil, nil => idp
-  | nil, a :: ys => {?} -- pmap (\lam lst => (lst :: nil) ++ a) (reverse++ nil ys)
-  | a :: xs, nil => {?} -- pmap (\lam lst => lst ++ a :: nil) (reverse++ xs nil)
-  | a :: xs, a1 :: ys => {?}
+  | nil, a :: ys => inv $ listNil (reverse ys ++ a :: nil)
+  | a :: xs, nil => pmap (\lam lst => lst ++ a :: nil) (reverse++ xs nil)
+  | a :: xs, b :: ys => pmap (\lam lst => lst ++ a :: nil) (reverse++ xs (b :: ys))
+      *> ++-assoc (reverse ys ++ b :: nil) (reverse xs) (a :: nil)
 
 \func reverse-isInvolutive {A : \Type} (xs : List A) : reverse (reverse xs) = xs
-  => {?}
+  | nil => idp
+  | a :: xs => reverse++ (reverse xs) (a :: nil)
+      *> pmap (\lam xs => a :: xs) (reverse-isInvolutive xs)
 
 -- 5. Докажите дистрибутивность умножения над сложением для натуральных чисел.
 
-\func rdistr (n m k : Nat) : (m + k) * n = m * n + k * n \elim n
+\func +-assoc (x y z : Nat) : (x + y) + z = x + (y + z) \elim x
   | 0 => idp
-  | suc n => {?}
+  | suc x => pmap suc (+-assoc x y z)
 
---  | 0, 0, 0 => idp
---  | 0, 0, suc k => idp
---  | 0, suc m, 0 => idp
---  | 0, suc m, suc k => idp
---  | suc n, 0, 0 => {?}
---  | suc n, 0, suc k => {?} -- pmap (\lam x => 0 * x) $ rdistr n 0 k
---  | suc n, suc m, 0 => {?} -- pmap (\lam x => suc x) $ rdistr n m 0
---  | suc n, suc m, suc k => {?}
+\func rdistr (n m k : Nat) : (m + k) * n = m * n + k * n
+--  \elim n
+--  | 0 => idp
+--  | suc n => pmap (\lam x => x + (m + k) + (k * n + k)) (rdistr n m k) -- $
+--    (m + k) * n ==< {?} >==
+--    m * n + m ==< {?} >==
+--    k * n + k ==< {?} >==
+--    {?}
+
+
+      -- (rdistr n m k)
+      -- *> pmap (\lam x => x) (rdistr n 0 k)
+
+  | 0, 0, 0 => idp
+  | 0, 0, suc k => idp
+  | 0, suc m, 0 => idp
+  | 0, suc m, suc k => idp
+  | suc n, 0, 0 => pmap (\lam x => x) $ rdistr n 0 0
+  | suc n, 0, suc k => pmap (\lam x => suc x + k) (rdistr n 0 (suc k))
+      *> {?}
+  | suc n, suc m, 0 => pmap (\lam x => suc x + m) (rdistr n (suc m) 0)
+      *> {?}
+  | suc n, suc m, suc k => pmap (\lam x => (suc $ suc x) + (m + k)) (rdistr n (suc m) (suc k))
+      *> {?}
 
 \func ldistr (n m k : Nat) : n * (m + k) = n * m + n * k => {?}
 --  | 0 => {?}
@@ -58,9 +81,7 @@
 --    Можно использовать любые функции, определенные через transport.
 
 \func pmap2 {A B C : \Type} (f : A -> B -> C) {a a' : A} (p : a = a') {b b' : B} (q : b = b') : f a b = f a' b'
-  => {?} -- transport (\lam x => C) p (f a b = f a' b')
-     -- transport (\lam x => pmap' (\lam y => f x y) q) p idp
-     -- transport (\lam x => transport (\lam y => f a b = f x y) q idp) p idp
+  => transport (\lam x => f a b = f x b') p (pmap (\lam x => f a x) q)
 
 -- 7. Докажите, что transport выражается через pmap и repl и наоборот.
 
