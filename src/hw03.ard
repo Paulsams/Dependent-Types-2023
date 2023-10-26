@@ -1,6 +1,5 @@
 \import Data.List
 \import Function.Meta
-\import Meta
 \import Paths
 \import lect03
 \open Nat(+,*)
@@ -48,34 +47,51 @@
   | 0 => idp
   | suc x => pmap suc (+-assoc x y z)
 
+\func +-comm (x y : Nat) : x + y = y + x \elim x
+  | 0 => idp
+  | suc x => pmap suc (+-comm x y)
+
+\func +-comm3 (x y z : Nat) : x + y + z = x + z + y \elim x
+  | 0 => +-comm y z
+  | suc x => pmap suc (+-comm3 x y z)
+
+\func +-comm4 (x y z w : Nat) : x + y + (z + w) = x + z + (y + w) \elim x
+  | 0 => helper y z w
+  | suc x => pmap suc (+-comm4 x y z w)
+    \where {
+      \func helper (y z w : Nat) : y + (z + w) = z + (y + w) \elim y
+        | 0 => idp
+        | suc y => pmap suc (helper y z w)
+    }
+
 \func rdistr (n m k : Nat) : (m + k) * n = m * n + k * n
---  \elim n
---  | 0 => idp
---  | suc n => pmap (\lam x => x + (m + k) + (k * n + k)) (rdistr n m k) -- $
---    (m + k) * n ==< {?} >==
---    m * n + m ==< {?} >==
---    k * n + k ==< {?} >==
---    {?}
-
-
-      -- (rdistr n m k)
-      -- *> pmap (\lam x => x) (rdistr n 0 k)
-
   | 0, 0, 0 => idp
   | 0, 0, suc k => idp
   | 0, suc m, 0 => idp
   | 0, suc m, suc k => idp
   | suc n, 0, 0 => pmap (\lam x => x) $ rdistr n 0 0
   | suc n, 0, suc k => pmap (\lam x => suc x + k) (rdistr n 0 (suc k))
-      *> {?}
+      *> pmap suc (+-assoc (0 * n) (suc k * n) k)
   | suc n, suc m, 0 => pmap (\lam x => suc x + m) (rdistr n (suc m) 0)
-      *> {?}
+      *> pmap (\lam x => suc $ x) (+-comm3 (suc m * n) (0 * n) m)
   | suc n, suc m, suc k => pmap (\lam x => (suc $ suc x) + (m + k)) (rdistr n (suc m) (suc k))
-      *> {?}
+      *> pmap (\lam x => suc $ suc x) (+-comm4 (suc m * n) (suc k * n) m k)
 
-\func ldistr (n m k : Nat) : n * (m + k) = n * m + n * k => {?}
---  | 0 => {?}
---  | suc n => transport (\lam x => suc n * (m + k) = suc n * m + suc n * k) (ldistr n m k) $ {?}
+\func ldistr (n m k : Nat) : n * (m + k) = n * m + n * k
+  | 0, 0, 0 => idp
+  | 0, 0, suc k => idp
+  | 0, suc m, 0 => idp
+  | 0, suc m, suc k => ldistr 0 m k
+  | suc n, 0, 0 => idp
+  | suc n, 0, suc k => idp
+  | suc n, suc m, 0 => idp
+  | suc n, suc m, suc k => pmap (\lam x => suc $ suc $ x) $
+  helperAllSuc (suc n * (m + k)) (suc n * m) (suc n * k) n (ldistr (suc n) m k)
+  \where {
+    \func helperAllSuc (x y1 y2 n : Nat) (p : x = y1 + y2) : x + n + n = y1 + n + (y2 + n) \elim n
+      | 0 => p
+      | suc n => pmap (\lam w => suc $ suc w) $ helperAllSuc x y1 y2 n p
+  }
 
 -- 6. Определите конгруэнтность для функций двух аргументов через transport.
 --    Можно использовать любые функции, определенные через transport.
