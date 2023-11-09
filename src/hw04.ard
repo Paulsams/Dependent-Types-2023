@@ -1,5 +1,8 @@
 \import Data.Bool
 \import Data.List
+\import Function.Meta
+\import Paths
+\import lect02 (T)
 \import lect04 \hiding (nil, tail)
 \open Nat
 
@@ -13,11 +16,10 @@
   | suc x, 0 => false
   | suc x, suc y => x < y
 
-\func lookup {A : \Type} (xs : List A) (i : Nat) (t : (i < length xs) = true) : A \elim xs, i
-  | a :: xs, 0 => a
-  | a :: xs, suc i => lookup xs i t
--- Не знаю как избавится от этих образцов
-  | nil, i => {?}
+\func lookup {A : \Type} (xs : List A) (i : Nat) (t : T (i < length xs)) : A \elim xs, i, t
+  | nil, 0, ()
+  | a :: xs, 0, t => a
+  | a :: xs, suc i, t => lookup xs i t
 
 -- 2. Реализуйте аналоги функции replicate для vec и Vec (эта функция создает список заданной длины, состоящий из повторений данного элемента).
 
@@ -60,25 +62,19 @@
 -- 6. Определите тип Tree A n бинарных деревьев высоты не больше n, которые хранят элементы только во внутренних узлах, но не в листьях.
 --    Высота листа равна 0.
 
--- У меня нет идей, как можно сделать так, чтобы Leaf был всегда 0.
--- То есть я не придумал, как в во втором паттерне сделать аля: `\Sigma A (Tree A (для любого m, где m <= n))`
--- Если так и надо было сделать, как я сейчас сделал, то ладно.
 \data Tree (A : \Type) (n : Nat) \elim n
-  | 0 || suc n => Leaf
+  | n => Leaf
   | suc n => Node (\Sigma A (Tree A n)) (\Sigma A (Tree A n))
 
-\func test_tree => Node (10, Leaf) (10, Node(10, Leaf))
+\func test_tree : Tree Nat 4 => Node (10, Leaf) (10, Node (10, Leaf) (10, Leaf))
 
--- определите функцию, возвращающую высоту дерева.
--- Её точно надо так объявлять?
 \func height {A : \Type} (n : Nat) (t : Tree A n) : Fin (suc n) \elim n, t
-  | 0, Leaf => fsuc fzero
-  | suc n, Leaf => fsuc fzero
-  | suc n, Node l r =>
+  | n, Leaf => fzero
+  | suc n, Node (_, l) (_, r) =>
     \let
       | left_height => height n l
       | right_height => height n r
-    \in max_fin left_height right_height
+    \in fsuc $ max_fin (suc n) left_height right_height
   \where {
     \func max_fin (n : Nat) (l : Fin n) (r : Fin n) : Fin n
       | suc n, fzero, fzero => fzero
@@ -121,10 +117,9 @@
 -- 9. Определите факториал через Nat-rec.
 
 -- Я не смог придумать, как сделать лучше. Возможно я не понимаю, как нужно пользоваться Nat-rec.
-\func fact (n : Nat) : Nat => Nat-rec Nat 1 (\lam m r => m Nat.* (\case r \with {
+\func fact (n : Nat) : Nat \elim n
   | 0 => 1
-  | x => x
-})) (suc n)
+  | n => Nat-rec Nat 1 (\lam m r => suc m * r) n
 
 -- 10. Докажите ассоциативность сложения для натуральных чисел через Nat-elim.
 \func +-assoc_elim (x y z : Nat) : (x + y) + z = x + (y + z)
@@ -141,84 +136,83 @@
 \func D-elim (P : D -> \Type)
              (c1 : \Pi (n : Nat) -> P (con1 n))
              (c2 : \Pi (d1 d2 : D) -> P d1 -> P d2 -> P (con2 d1 d2))
-             (c3 : \Pi (g : Nat -> D) -> P (con3 g))
+             (c3 : \Pi (f : Nat -> \Sigma (d : D) (P d)) -> P (con3 (\lam (n : Nat) => (f n).1)))
              (x : D) : P x
 \elim x
   | con1 n => c1 n
   | con2 d1 d2 => c2 d1 d2 (D-elim P c1 c2 c3 d1) (D-elim P c1 c2 c3 d2)
-  | con3 g => c3 g
+  | con3 g => c3 (\lam n => (g n, D-elim P c1 c2 c3 (g n)))
 
 -- Рекурсор для D
 \func D-rec (P : \Type)
             (c1 : Nat -> P)
             (c2 : D -> D -> P -> P -> P)
-            (c3 : (Nat -> D) -> P)
+            (c3 : (Nat -> \Sigma D P) -> P)
             (x : D) : P
   => D-elim (\lam _ => P) c1 c2 c3 x
 
-{- To check that the definition of D-elim and D-rec is correct, you can try to implement foo using D-rec.
-\func foo (d : D) : Nat
-  | con1 n => n
-  | con2 d1 d2 => foo d1 Nat.+ foo d2
-  | con3 g => foo (g (foo (g 100)))
--}
+-- To check that the definition of D-elim and D-rec is correct, you can try to implement foo using D-rec.
+--\func foo (d : D) : Nat
+--  | con1 n => n
+--  | con2 d1 d2 => foo d1 Nat.+ foo d2
+--  | con3 g => foo (g (foo (g 100)))
 
 -- Не знаю как тут нормально избавится от рекурсив колла
---\func foo (d : D) : Nat
---  => D-rec Nat (\lam n => n) (\lam d1 d2 x y => x + y) (\lam g => foo (g (foo (g 100)))) d
+\func foo (d : D) : Nat
+  => D-rec Nat (\lam n => n) (\lam d1 d2 x y => x + y) (\lam g => \let (d, n) => g 100 \in n) d
 
--- 12. Определите рекурсор и элиминатор для List.
-
--- Элиминатор для List
-\func List-elim {A : \Type}
-                (P : List A -> \Type)
-                (z : P nil)
-                (s : \Pi (a : A) (xs : List A) -> P xs -> P (a :: xs))
-                (xs : List A) : P xs
-\elim xs
-  | nil => z
-  | a :: xs => s a xs (List-elim P z s xs)
-
--- Рекурсор для List
-\func List-rec {A : \Type}
-               (P : \Type)
-               (z : P)
-               (s : A -> List A -> P -> P)
-               (x : List A) : P
-  => List-elim (\lam _ => P) z s x
-
-\func test-map {A B : \Type} (xs : List A) (f : A -> B) : List B
-  => List-rec (List B) nil (\lam a _ bs => f a :: bs) xs
-
--- 13. Докажите pmap при помощи паттерн матчинга с idp.
-
-\func pmap {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a' \elim p
-  | idp => idp
-
--- 14. Докажите pmap2 при помощи паттерн матчинга с idp.
-
-\func pmap2 {A B C : \Type} (f : A -> B -> C) {a a' : A} (p : a = a') {b b' : B} (q : b = b') : f a b = f a' b' \elim p, q
-  | idp, idp => idp
-
--- Optional task
--- 15. У оператора J есть другая форма, которую мы будем называть Jalt. Докажите, что J и Jalt эквивалентны, то есть выразите одно через другое и наоборот.
-
--- Выразите Jalt через J. Можно пользоваться только J, idp и всем, что через них выражается.
-
-\func Jalt {A : \Type} (B : \Pi (a a' : A) -> a = a' -> \Type)
-           (b : \Pi (a : A) -> B a a idp)
-           {a a' : A} (p : a = a') : B a a' p => {?}
-
--- Выразите J через Jalt. Можно пользоваться только Jalt, idp и всем, что через них выражается.
--- Hint:
--- a. Выразите transport через Jalt.
--- b. Докажите, что тип \Sigma (x : A) (a = x) одноэлементный, то есть, что для любого p : \Sigma (x : A) (a = x) верно, что (x,idp) = p.
--- c. Используя эти две конструкции, легко определить J.
-
-\func transport'' {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a' => {?}
-
-\func sigma-contr {A : \Type} {a : A} (p : \Sigma (x : A) (a = x)) : (a,idp) = {\Sigma (x : A) (a = x)} p => {?}
-
-\func J' {A : \Type} {a : A} (B : \Pi (a' : A) -> a = a' -> \Type)
-         (b : B a idp)
-         {a' : A} (p : a = a') : B a' p => {?}
+---- 12. Определите рекурсор и элиминатор для List.
+--
+---- Элиминатор для List
+--\func List-elim {A : \Type}
+--                (P : List A -> \Type)
+--                (z : P nil)
+--                (s : \Pi (a : A) (xs : List A) -> P xs -> P (a :: xs))
+--                (xs : List A) : P xs
+--\elim xs
+--  | nil => z
+--  | a :: xs => s a xs (List-elim P z s xs)
+--
+---- Рекурсор для List
+--\func List-rec {A : \Type}
+--               (P : \Type)
+--               (z : P)
+--               (s : A -> List A -> P -> P)
+--               (x : List A) : P
+--  => List-elim (\lam _ => P) z s x
+--
+--\func test-map {A B : \Type} (xs : List A) (f : A -> B) : List B
+--  => List-rec (List B) nil (\lam a _ bs => f a :: bs) xs
+--
+---- 13. Докажите pmap при помощи паттерн матчинга с idp.
+--
+--\func pmap {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a' \elim p
+--  | idp => idp
+--
+---- 14. Докажите pmap2 при помощи паттерн матчинга с idp.
+--
+--\func pmap2 {A B C : \Type} (f : A -> B -> C) {a a' : A} (p : a = a') {b b' : B} (q : b = b') : f a b = f a' b' \elim p, q
+--  | idp, idp => idp
+--
+---- Optional task
+---- 15. У оператора J есть другая форма, которую мы будем называть Jalt. Докажите, что J и Jalt эквивалентны, то есть выразите одно через другое и наоборот.
+--
+---- Выразите Jalt через J. Можно пользоваться только J, idp и всем, что через них выражается.
+--
+--\func Jalt {A : \Type} (B : \Pi (a a' : A) -> a = a' -> \Type)
+--           (b : \Pi (a : A) -> B a a idp)
+--           {a a' : A} (p : a = a') : B a a' p => {?}
+--
+---- Выразите J через Jalt. Можно пользоваться только Jalt, idp и всем, что через них выражается.
+---- Hint:
+---- a. Выразите transport через Jalt.
+---- b. Докажите, что тип \Sigma (x : A) (a = x) одноэлементный, то есть, что для любого p : \Sigma (x : A) (a = x) верно, что (x,idp) = p.
+---- c. Используя эти две конструкции, легко определить J.
+--
+--\func transport'' {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a' => {?}
+--
+--\func sigma-contr {A : \Type} {a : A} (p : \Sigma (x : A) (a = x)) : (a,idp) = {\Sigma (x : A) (a = x)} p => {?}
+--
+--\func J' {A : \Type} {a : A} (B : \Pi (a' : A) -> a = a' -> \Type)
+--         (b : B a idp)
+--         {a' : A} (p : a = a') : B a' p => {?}
